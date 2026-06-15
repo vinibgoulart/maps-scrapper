@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maps Scrapper</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#4285F4"/>
+          <circle cx="12" cy="9" r="2.5" fill="white"/>
+        </svg>
+        <h1>Maps Scrapper</h1>
+      </div>
+      <span class="version">v1.0</span>
+    </header>
+
+    <div id="not-maps" class="message warning" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 11a1 1 0 110-2 1 1 0 010 2zm1-4H7V4h2v4z"/></svg>
+      <span>Navigate to Google Maps search results first.</span>
+    </div>
+
+    <div id="controls">
+      <div class="btn-group">
+        <button id="btn-scrape" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2v12h12V2H2zm10 10H4V4h8v8z"/></svg>
+          Scrape All Results
+        </button>
+        <button id="btn-scrape-visible" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4.5 3 1.7 5.1 0 8c1.7 2.9 4.5 5 8 5s6.3-2.1 8-5c-1.7-2.9-4.5-5-8-5zm0 8a3 3 0 110-6 3 3 0 010 6z"/></svg>
+          Visible Only
+        </button>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="auto-scroll" checked>
+        <span>Auto-scroll to load all results</span>
+      </label>
+    </div>
+
+    <div id="progress" style="display:none;">
+      <div class="progress-bar">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <p class="progress-text" id="progress-text">Scrolling to load results...</p>
+    </div>
+
+    <div id="results" style="display:none;">
+      <div class="results-header">
+        <h2><span id="result-count">0</span> businesses found</h2>
+        <div class="export-btns">
+          <button id="btn-csv" class="btn btn-sm btn-export" title="Export CSV">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1v14h8V5l-4-4H4zm4 0v4h4"/></svg>
+            CSV
+          </button>
+          <button id="btn-json" class="btn btn-sm btn-export" title="Export JSON">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1v14h8V5l-4-4H4zm4 0v4h4"/></svg>
+            JSON
+          </button>
+          <button id="btn-copy" class="btn btn-sm btn-export" title="Copy to clipboard">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5 2H3v12h8v-2H5V2zm2-1h8v10H7V1z"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Rating</th>
+              <th>Reviews</th>
+              <th>Category</th>
+              <th>Address</th>
+              <th>Phone</th>
+              <th>Hours</th>
+              <th>Website</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="error" class="message error" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 11a1 1 0 110-2 1 1 0 010 2zm1-4H7V4h2v4z"/></svg>
+      <span id="error-text"></span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

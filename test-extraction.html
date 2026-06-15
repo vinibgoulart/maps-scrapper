@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Maps Scrapper - Extraction Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+    h1 { color: #4285F4; }
+    .pass { color: #34a853; }
+    .fail { color: #ea4335; }
+    .info { color: #fbbc04; }
+    pre { background: #2a2a3e; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 12px; }
+    th, td { border: 1px solid #444; padding: 6px 8px; text-align: left; }
+    th { background: #2a2a3e; }
+  </style>
+</head>
+<body>
+  <h1>Maps Scrapper - Extraction Test</h1>
+  <div id="output"></div>
+  <div id="table-output"></div>
+
+  <script>
+    // Inline the extraction logic from content.js for testing
+    const SELECTORS = {
+      feedContainer: 'div[role="feed"]',
+      resultItem: 'div[role="article"]',
+      businessName: '.qBF1Pd.fontHeadlineSmall',
+      ratingBlock: 'span.ZkP5Je',
+      ratingValue: 'span.MW4etd',
+      reviewCount: 'span.UY7F9',
+      infoRows: '.W4Efsd',
+      phone: '.UsdlK',
+      websiteLink: 'a.lcr4fd[data-value="Website"]',
+      mapsLink: 'a.hfpxzc',
+      highlightReview: '.ah5Ghc',
+    };
+
+    function parseTextContent(el) {
+      return el ? el.textContent.trim().replace(/\s+/g, ' ') : '';
+    }
+
+    function extractLatLngFromUrl(url) {
+      if (!url) return { latitude: '', longitude: '' };
+      const match = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+      if (match) return { latitude: match[1], longitude: match[2] };
+      return { latitude: '', longitude: '' };
+    }
+
+    function extractPlaceId(url) {
+      if (!url) return '';
+      const match = url.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/);
+      return match ? match[1] : '';
+    }
+
+    function extractBusinessData(article) {
+      const name = parseTextContent(article.querySelector(SELECTORS.businessName));
+      const ratingValue = parseTextContent(article.querySelector(SELECTORS.ratingValue));
+      const reviewCountEl = article.querySelector(SELECTORS.reviewCount);
+      const reviewCountText = parseTextContent(reviewCountEl);
+      const reviewCount = reviewCountText.replace(/[^\d]/g, '');
+
+      let category = '', address = '', hours = '', phone = '';
+      const phoneEl = article.querySelector(SELECTORS.phone);
+      if (phoneEl) phone = parseTextContent(phoneEl);
+
+      const detailRows = article.querySelectorAll('.W4Efsd > .W4Efsd');
+      if (detailRows.length >= 1) {
+        const firstDetailRow = detailRows[0];
+        const spans = firstDetailRow.querySelectorAll(':scope > span');
+        const parts = [];
+        spans.forEach(span => {
+          const text = span.textContent.trim().replace(/\s+/g, ' ');
+          if (text && text !== '·') {
+            const cleaned = text.replace(/^·\s*/, '').trim();
+            if (cleaned) parts.push(cleaned);
+          }
+        });
+        if (parts.length > 0) category = parts[0];
+        for (const part of parts) {
+          if (/\d/.test(part) && /[Rr]\.|[Aa]v\.|[Tt]rav\.|[Ee]str\.|[Rr]od\.|,\s*\d/.test(part)) {
+            address = part;
+            break;
+          }
+          if (part !== category && !part.includes('acessível')) {
+            address = part;
+          }
+        }
+      }
+
+      if (detailRows.length >= 2) {
+        const secondDetailRow = detailRows[1];
+        const fullText = secondDetailRow.textContent.trim().replace(/\s+/g, ' ');
+        const phonePart = phone ? fullText.replace(phone, '').replace(/·\s*$/, '').trim() : fullText;
+        hours = phonePart.replace(/·\s*$/, '').trim();
+        if (!phone) {
+          const phoneMatch = fullText.match(/\(\d{2}\)\s*[\d-]+/);
+          if (phoneMatch) {
+            phone = phoneMatch[0];
+            hours = fullText.replace(phone, '').replace(/·\s*/g, '').trim();
+          }
+        }
+      }
+
+      const websiteEl = article.querySelector(SELECTORS.websiteLink);
+      const website = websiteEl?.href || '';
+      const mapsLinkEl = article.querySelector(SELECTORS.mapsLink);
+      const mapsUrl = mapsLinkEl?.href || '';
+      const { latitude, longitude } = extractLatLngFromUrl(mapsUrl);
+      const placeId = extractPlaceId(mapsUrl);
+      const reviewEl = article.querySelector(SELECTORS.highlightReview);
+      const highlightReview = parseTextContent(reviewEl);
+
+      return {
+        name, rating: ratingValue.replace(',', '.'),
+        reviews: reviewCount, category, address, hours, phone,
+        website, mapsUrl, latitude, longitude, placeId, highlightReview,
+      };
+    }
+
+    async function runTest() {
+      const out = document.getElementById('output');
+      const tableOut = document.getElementById('table-output');
+
+      out.innerHTML += '<p class="info">Loading maps.html...</p>';
+
+      const resp = await fetch('maps.html');
+      const html = await resp.text();
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      const articles = doc.querySelectorAll(SELECTORS.resultItem);
+      out.innerHTML += `<p class="info">Found ${articles.length} articles</p>`;
+
+      const results = [];
+      articles.forEach((article, i) => {
+        try {
+          const data = extractBusinessData(article);
+          if (data.name) results.push(data);
+        } catch (e) {
+          out.innerHTML += `<p class="fail">Error on article ${i}: ${e.message}</p>`;
+        }
+      });
+
+      out.innerHTML += `<p class="pass">Successfully extracted ${results.length} businesses</p>`;
+
+      // Validate first few known entries
+      const expected = [
+        { name: 'Mecânica de Automóveis no Roçado', rating: '4.7', reviews: '59', phone: '(48) 99802-0954' },
+        { name: 'Alvorada mecânica', rating: '4.4', reviews: '183', phone: '(48) 3375-4743' },
+        { name: 'MECÂNICA JB', rating: '4.8', reviews: '64', phone: '(48) 3259-6865' },
+        { name: 'Mecânica', rating: '5.0', reviews: '12', phone: '(48) 99128-5793' },
+      ];
+
+      let passes = 0, fails = 0;
+      expected.forEach((exp, i) => {
+        const actual = results[i];
+        if (!actual) { out.innerHTML += `<p class="fail">MISSING result #${i}</p>`; fails++; return; }
+        for (const [key, val] of Object.entries(exp)) {
+          if (actual[key] === val) {
+            passes++;
+          } else {
+            out.innerHTML += `<p class="fail">FAIL #${i} ${exp.name}: ${key} expected "${val}" got "${actual[key]}"</p>`;
+            fails++;
+          }
+        }
+      });
+
+      out.innerHTML += `<p class="${fails === 0 ? 'pass' : 'fail'}">Validation: ${passes} passed, ${fails} failed</p>`;
+
+      // Render full table
+      let tableHtml = '<table><thead><tr><th>#</th><th>Name</th><th>Rating</th><th>Reviews</th><th>Category</th><th>Address</th><th>Phone</th><th>Hours</th><th>Website</th><th>Lat</th><th>Lng</th></tr></thead><tbody>';
+      results.forEach((r, i) => {
+        tableHtml += `<tr>
+          <td>${i+1}</td><td>${r.name}</td><td>${r.rating}</td><td>${r.reviews}</td>
+          <td>${r.category}</td><td>${r.address}</td><td>${r.phone}</td><td>${r.hours}</td>
+          <td>${r.website ? '<a href="'+r.website+'" style="color:#4285F4">Link</a>' : '-'}</td>
+          <td>${r.latitude}</td><td>${r.longitude}</td>
+        </tr>`;
+      });
+      tableHtml += '</tbody></table>';
+      tableOut.innerHTML = tableHtml;
+
+      // Log full JSON for first 3
+      out.innerHTML += '<h3>Sample data (first 3):</h3>';
+      out.innerHTML += '<pre>' + JSON.stringify(results.slice(0, 3), null, 2) + '</pre>';
+    }
+
+    runTest();
+  </script>
+</body>
+</html>
